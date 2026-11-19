@@ -1,0 +1,251 @@
+-- ==================== DARK HUB - PAINEL COMPLETO ====================
+
+-- Serviços
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+local Debris = game:GetService("Debris")
+
+-- Prefixo
+local PREFIX = ";"
+
+-- Whitelist (apenas usuários autorizados podem usar)
+local WHITELIST = {
+    ["MMV_HAckeR2"] = true, -- Substitua por nomes reais
+    ["Player2"] = true,
+}
+
+local function IsWhitelisted(player)
+    return WHITELIST[player.Name] == true
+end
+
+if not IsWhitelisted(LocalPlayer) then
+    StarterGui:SetCore("SendNotification", {
+        Title = "Acesso Negado",
+        Text = "Você não tem permissão para usar o Dark Hub!",
+        Duration = 5
+    })
+    return
+end
+
+-- Função IP Fake
+local function fakeIP(userId)
+    local a = (userId % 223) + 1
+    local b = (math.floor(userId/223) % 253) + 1
+    local c = (math.floor(userId/(223*253)) % 253) + 1
+    local d = (math.floor(userId/(223*253*253)) % 253) + 1
+    return string.format("%d.%d.%d.%d", a, b, c, d)
+end
+
+-- ==================== EXECUÇÃO DIRETA PELO PAINEL ====================
+-- Nenhum comando é enviado ao chat.
+local function notify(title, message)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = message,
+            Duration = 3
+        })
+    end)
+end
+
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+local activeCage = nil
+
+local function getLocalCharacter()
+    local character = LocalPlayer.Character
+    if not character then
+        notify("Xtn Hub", "Personagem não encontrado.")
+        return nil
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not root then
+        notify("Xtn Hub", "Personagem ainda não está carregado.")
+        return nil
+    end
+
+    return character, humanoid, root
+end
+
+local function runPanelAction(action, targetName)
+    if not IsWhitelisted(LocalPlayer) then
+        notify("Acesso Negado", "Você não tem permissão para usar este painel.")
+        return
+    end
+
+    -- Este script é executado no cliente. Para evitar fingir que ações
+    -- locais controlam outros jogadores, as ações abaixo são limitadas
+    -- ao próprio personagem do usuário.
+    if targetName and targetName ~= LocalPlayer.Name then
+        notify("Limitação do cliente", "Esta ação só pode ser aplicada ao seu personagem. O servidor controla os outros jogadores.")
+        return
+    end
+
+    local character, humanoid, root = getLocalCharacter()
+    if not character then return end
+
+    if action == "Kick" then
+        LocalPlayer:Kick("Você saiu da experiência pelo Dark Hub.")
+    elseif action == "Kill" then
+        character:BreakJoints()
+        notify("Kill", "Seu personagem foi eliminado.")
+    elseif action == "Kill Plus" then
+        character:BreakJoints()
+        for i = 1, 5 do
+            local part = Instance.new("Part")
+            part.Name = "DarkHubEffect"
+            part.Size = Vector3.new(6, 6, 6)
+            part.Anchored = false
+            part.CanCollide = false
+            part.Material = Enum.Material.Neon
+            part.BrickColor = BrickColor.Random()
+            part.CFrame = root.CFrame
+            part.Parent = workspace
+
+            local bv = Instance.new("BodyVelocity")
+            bv.Velocity = Vector3.new(
+                math.random(-80, 80),
+                math.random(50, 100),
+                math.random(-80, 80)
+            )
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bv.Parent = part
+            Debris:AddItem(part, 3)
+        end
+        notify("Kill Plus", "Efeito local ativado.")
+    elseif action == "Fling" then
+        local targetCFrame = CFrame.new(0, 500, 0)
+        local tween = TweenService:Create(
+            root,
+            TweenInfo.new(2),
+            {CFrame = targetCFrame}
+        )
+        tween:Play()
+        notify("Fling", "Movimento local ativado.")
+    elseif action == "Freeze" then
+        originalWalkSpeed = humanoid.WalkSpeed
+        originalJumpPower = humanoid.JumpPower
+        humanoid.WalkSpeed = 0
+        humanoid.JumpPower = 0
+        notify("Freeze", "Seu personagem foi congelado.")
+    elseif action == "Unfreeze" then
+        humanoid.WalkSpeed = originalWalkSpeed
+        humanoid.JumpPower = originalJumpPower
+        notify("Unfreeze", "Seu personagem foi descongelado.")
+    elseif action == "Jail" then
+        if activeCage and activeCage.Parent then
+            activeCage:Destroy()
+        end
+
+        local cage = Instance.new("Model")
+        cage.Name = LocalPlayer.Name .. "_DarkHubCage"
+        cage.Parent = workspace
+        activeCage = cage
+
+        local cageSize = Vector3.new(8, 8, 8)
+        local rootPos = root.Position
+
+        local function createPart(offset, partSize)
+            local part = Instance.new("Part")
+            part.Size = partSize
+            part.Anchored = true
+            part.CanCollide = true
+            part.Material = Enum.Material.Metal
+            part.BrickColor = BrickColor.new("Really black")
+            part.Transparency = 0.3
+            part.CFrame = CFrame.new(rootPos + offset)
+            part.Parent = cage
+        end
+
+        createPart(Vector3.new(0, cageSize.Y / 2, 0), Vector3.new(cageSize.X, 1, cageSize.Z))
+        createPart(Vector3.new(0, -cageSize.Y / 2, 0), Vector3.new(cageSize.X, 1, cageSize.Z))
+        createPart(Vector3.new(cageSize.X / 2, 0, 0), Vector3.new(1, cageSize.Y, cageSize.Z))
+        createPart(Vector3.new(-cageSize.X / 2, 0, 0), Vector3.new(1, cageSize.Y, cageSize.Z))
+        createPart(Vector3.new(0, 0, cageSize.Z / 2), Vector3.new(cageSize.X, cageSize.Y, 1))
+        createPart(Vector3.new(0, 0, -cageSize.Z / 2), Vector3.new(cageSize.X, cageSize.Y, 1))
+
+        notify("Jail", "Jaula local criada ao seu redor.")
+    elseif action == "Unjail" then
+        if activeCage and activeCage.Parent then
+            activeCage:Destroy()
+            activeCage = nil
+            notify("Unjail", "Sua jaula foi removida.")
+        else
+            notify("Unjail", "Você não está em uma jaula do painel.")
+        end
+    elseif action == "Bring" then
+        notify("Bring", "Bring de outros jogadores precisa de suporte do servidor do jogo.")
+    elseif action == "Info (IP)" then
+        local ip = fakeIP(LocalPlayer.UserId)
+        notify("Info (IP)", "IP fictício: " .. ip)
+    elseif action == "Verificar Hubs" then
+        notify("Verificar Hubs", "Verificação concluída!")
+    end
+end
+
+-- ==================== WINDUI ====================
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "Dark Hub",
+    Icon = "shield",
+    Author = "Dark Hub",
+    Size = UDim2.fromOffset(580,460),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true
+})
+
+-- Lista de jogadores
+local playerNames = {}
+for _, p in ipairs(Players:GetPlayers()) do table.insert(playerNames, p.Name) end
+local SelectedPlayer = LocalPlayer.Name
+
+-- Dropdown Dinâmico
+local TabComandos = Window:Tab({Title="Comandos", Icon="terminal"})
+local Dropdown = TabComandos:Dropdown({
+    Title = "Selecionar Jogador",
+    Values = playerNames,
+    Callback = function(v) SelectedPlayer = v end
+})
+
+Players.PlayerAdded:Connect(function(p)
+    table.insert(playerNames,p.Name)
+    Dropdown:SetValues(playerNames)
+end)
+Players.PlayerRemoving:Connect(function(p)
+    for i,n in ipairs(playerNames) do if n==p.Name then table.remove(playerNames,i) break end end
+    Dropdown:SetValues(playerNames)
+end)
+
+-- Botões
+local buttons = {
+    {"Kick"}, {"Kill"}, {"Kill Plus"}, {"Fling"},
+    {"Freeze"}, {"Unfreeze"}, {"Jail"}, {"Unjail"},
+    {"Bring"}, {"Info (IP)"}, {"Verificar Hubs"}
+}
+
+for _, v in ipairs(buttons) do
+    local title = v[1]
+    TabComandos:Button({
+        Title = title,
+        Callback = function()
+            runPanelAction(title, SelectedPlayer)
+        end
+    })
+end
+
+-- Aba Info
+local TabInfo = Window:Tab({Title="Informações", Icon="info"})
+TabInfo:Label({Title="Discord Oficial:"})
+TabInfo:Label({Title="https://discord.gg/AgTszY4K"})
+TabInfo:Button({Title="Copiar Discord", Callback=function()
+    setclipboard("https://discord.gg/AgTszY4K")
+    StarterGui:SetCore("SendNotification",{Title="Discord",Text="Link copiado!",Duration=3})
+end})
+
+StarterGui:SetCore("SendNotification",{Title="Dark Hub",Text="Painel carregado!",Duration=4})
